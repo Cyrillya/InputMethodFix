@@ -1,0 +1,10 @@
+{
+  "Name": "输入法修复（Input Method Fix）",
+  "Author": "Cyrilly",
+  "Version": "%ProjectVersion%",
+  "Description": "解决星露谷卡输入法/候选框不可视问题",
+  "UniqueID": "Cyrilly.InputMethodFix",
+  "EntryDll": "InputMethodFix.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": []
+}
