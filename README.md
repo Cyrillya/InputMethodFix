@@ -2,7 +2,7 @@
 
 <div align="center">
 
-📥 [Nexus下载]() | 📥 [Github下载](https://github.com/Cyrillya/InputMethodFix/releases/latest)
+📥 [Nexus下载](https://www.nexusmods.com/stardewvalley/mods/35313) | 📥 [Github下载](https://github.com/Cyrillya/InputMethodFix/releases/latest)
 
 本模组致力于解决星露谷卡输入法/输入时无法显示候选只能摸黑等问题
 支持搜狗、微软、讯飞等输入法
@@ -25,7 +25,7 @@
 ![ingame-ime-panel](./img/ingame-ime-panel.png)
 
 > [!NOTE]
-> 由于各种输入法五花八门，且本人能力有限，输入法UI功能只能保证支持所有符合Windows规范的输入法（因此，Linux和MacOS上也无法使用此功能）。本人测试了几款输入法，支持情况可[点击此处查看](#输入法支持情况)
+> 由于各种输入法五花八门，且本人能力有限，输入法UI功能只能保证支持所有符合Windows规范的输入法（因此，Linux和MacOS上也无法使用此功能）。本人测试了几款输入法，支持情况可[点击此处查看](#📊 输入法支持情况)。
 > 但如果你只是想不卡输入法，即不会因为处于中文输入状态而无法走路，是可以确保支持所有输入法，以及支持Linux、MacOS、Windows平台的
 
 这个Mod是我从零学星露谷Modding学了半天搞出来的，如果有什么地方不符合规范，望各位大佬指出。由于我在泰拉瑞亚的Modding经验丰富，本模组显示输入法框的大部分代码都是直接挪用泰拉瑞亚的，若看代码的时候看到哪些地方不太合理，估计是没删干净/没优化到。
