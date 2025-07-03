@@ -18,11 +18,11 @@
 
 该模组会自动检测输入状态，仅当需要文本输入（如聊天、命名动物等）时才会唤起输入法，这样即使开着中文输入法，也不用被卡输入法困扰，输入文本时也无需反复切换输入法。
 
-![moving-around](https://github.com/user-attachments/assets/906a5977-890f-4472-8b4e-89eaaa79a02c)
+![moving-around](./img/moving-around.gif)
 
 为了解决全屏模式下看不到系统输入法UI的问题，我在游戏中添加了一个输入法UI，只会在输入文本时显示，用于显示待输入文本和候选词，这样即使全屏也可以流畅地输入文字了。
 
-![ingame-ime-panel](https://github.com/user-attachments/assets/8a7dea3b-a20c-4ad8-b556-45c07fe536dd)
+![ingame-ime-panel](./img/ingame-ime-panel.png)
 
 > [!NOTE]
 > 由于各种输入法五花八门，且本人能力有限，输入法UI功能只能保证支持所有符合Windows规范的输入法（因此，Linux和MacOS上也无法使用此功能）。本人测试了几款输入法，支持情况可[点击此处查看](#输入法支持情况)
