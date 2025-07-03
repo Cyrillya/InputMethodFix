@@ -209,7 +209,7 @@ internal class WinImm32Ime : IImeService, IDisposable
             return true;
         }
 
-        if (!ModEntry.Config.UseSystemIME)
+        if (ModEntry.Config?.UseSystemIME != true)
         {
             // Hides the system IME. Should always be called on application startup.
             if (message.Msg == Msg.WM_IME_SETCONTEXT)

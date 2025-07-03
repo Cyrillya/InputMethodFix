@@ -33,9 +33,9 @@ public class ModEntry : Mod
     private static WinImm32Ime WinImm32Ime;
 
     public static Game1 KeyboardFocusInstance => Game1.keyboardFocusInstance;
-    public static IKeyboardSubscriber KeyboardSubscriber => KeyboardFocusInstance.instanceKeyboardDispatcher.Subscriber;
+    public static IKeyboardSubscriber? KeyboardSubscriber => KeyboardFocusInstance?.instanceKeyboardDispatcher?.Subscriber;
     private static bool _oldIsTextInputSubscribed;
-    public static bool IsTextInputSubscribed => KeyboardSubscriber is not null;
+    public static bool IsTextInputSubscribed => KeyboardSubscriber != null;
 
     public override void Entry(IModHelper helper)
     {
@@ -52,19 +52,30 @@ public class ModEntry : Mod
 
         // 为了确保是绘制到鼠标下层，必须用Harmony了
         var harmony = new Harmony(ModManifest.UniqueID);
-        harmony.Patch(
-           original: AccessTools.Method(typeof(Game1), nameof(Game1.drawMouseCursor)),
-           prefix: new HarmonyMethod(typeof(ModEntry), nameof(RenderInputMethodNotInFullscreenMenu))
-        );
-        harmony.Patch(
-           original: AccessTools.Method(typeof(IClickableMenu), nameof(IClickableMenu.drawMouse)),
-           prefix: new HarmonyMethod(typeof(ModEntry), nameof(RenderInputMethodInFullscreenMenu))
-        );
+        var drawMouseCursorMethod = AccessTools.Method(typeof(Game1), nameof(Game1.drawMouseCursor));
+        var drawMouseMethod = AccessTools.Method(typeof(IClickableMenu), nameof(IClickableMenu.drawMouse));
+        
+        if (drawMouseCursorMethod != null)
+        {
+            harmony.Patch(
+                original: drawMouseCursorMethod,
+                prefix: new HarmonyMethod(typeof(ModEntry), nameof(RenderInputMethodNotInFullscreenMenu))
+            );
+        }
+        
+        if (drawMouseMethod != null)
+        {
+            harmony.Patch(
+                original: drawMouseMethod,
+                prefix: new HarmonyMethod(typeof(ModEntry), nameof(RenderInputMethodInFullscreenMenu))
+            );
+        }
     }
 
     public void InitIME()
     {
-        if (!Game1.game1.IsMainInstance) return;
+        if (Game1.game1?.IsMainInstance != true) return;
+        if (Game1.game1.Window?.Handle == null) return;
 
         // 初始化IME状态
         var windowHandle = Game1.game1.Window.Handle;
@@ -74,16 +85,14 @@ public class ModEntry : Mod
         hWnd = info.info.win.window;
         hImc = NativeMethods.ImmGetContext(hWnd);
 
-        if (_wndProcHook == null)
-            _wndProcHook = new WindowsMessageHook(hWnd);
-
-        WinImm32Ime = new WinImm32Ime(_wndProcHook, hWnd);
+        _wndProcHook ??= new WindowsMessageHook(hWnd);
+        WinImm32Ime ??= new WinImm32Ime(_wndProcHook, hWnd);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
     {
         // 初始禁用输入法
-        WinImm32Ime.Disable();
+        WinImm32Ime?.Disable();
         SDL_StopTextInput();
 
         GenericModConfigMenuIntegration.Init();
@@ -103,10 +112,11 @@ public class ModEntry : Mod
     // 暂不支持除Windows以外的系统
     public static void RenderInputMethod(SpriteBatch spriteBatch)
     {
-        if (Config.UseSystemIME) return;
+        if (Config?.UseSystemIME == true) return;
         if (Constants.TargetPlatform is not GamePlatform.Windows) return;
         if (!IsTextInputActive() || !IsTextInputSubscribed) return;
-        if (KeyboardFocusInstance != Game1.game1) return;
+        if (Game1.game1 == null || KeyboardFocusInstance != Game1.game1) return;
+        if (WinImm32Ime == null) return;
 
         WinImm32Ime.UpdateCandidateList();
 
@@ -151,6 +161,8 @@ public class ModEntry : Mod
         float x, y;
         if (KeyboardSubscriber is TextBox textBox)
         {
+            var boxFont = textBox.Font ?? Game1.dialogueFont;
+
             var textForCalc = textBox.Text;
             if (string.IsNullOrEmpty(textForCalc) || textForCalc.EndsWith('\n'))
             {
@@ -158,13 +170,13 @@ public class ModEntry : Mod
                 textForCalc += "H";
             }
 
-            var textSize = textBox.Font.MeasureString(textForCalc);
+            var textSize = boxFont.MeasureString(textForCalc);
             var cursorPosition = new Vector2(textBox.X + 16 + textSize.X, textBox.Y + 10 + textSize.Y);
             x = cursorPosition.X;
             if (cursorPosition.Y + height > screenHeight)
-                y = cursorPosition.Y - height - outerPadding - textBox.Font.LineSpacing;
+                y = cursorPosition.Y - height - outerPadding - boxFont.LineSpacing;
             else
-                y = cursorPosition.Y + textBox.Font.LineSpacing;
+                y = cursorPosition.Y + boxFont.LineSpacing;
 
             // 确保输入法整框在游戏屏幕范围内
             if (x + width > screenWidth)
@@ -211,7 +223,7 @@ public class ModEntry : Mod
     // 每帧检测输入状态是否更改，并切换SDL输入模式
     private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
-        if (!Game1.game1.IsMainInstance) return;
+        if (Game1.game1?.IsMainInstance != true) return;
         if (_oldIsTextInputSubscribed == IsTextInputSubscribed) return; // 检测更改
 
         _oldIsTextInputSubscribed = IsTextInputSubscribed;
@@ -228,7 +240,7 @@ public class ModEntry : Mod
 
         if (IsTextInputSubscribed)
         {
-            WinImm32Ime.Enable();
+            WinImm32Ime?.Enable();
             // 开启输入模式
             SDL_StartTextInput();
             // 尝试让系统输入法框绘制在输入框的下面，但是好像没用，不管了，反正我自己绘制输入法框（
@@ -236,7 +248,7 @@ public class ModEntry : Mod
         }
         else
         {
-            WinImm32Ime.Disable();
+            WinImm32Ime?.Disable();
             SDL_StopTextInput();
         }
     }
