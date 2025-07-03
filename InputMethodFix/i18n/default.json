@@ -1,0 +1,12 @@
+{
+  "config.use-system-ime.name": "Use System IME",
+  "config.use-system-ime.tooltip": "Whether to use system IME instead of ingame IME when typing. Turn this on if the ingame IME panel doesn't support your IME. Not recommended to turn it on.",
+  "config.show-log-text.name": "Show Debug Text",
+  "config.selected-text-color.name": "Selected Text Color",
+  "config.selected-text-color.tooltip": "The color of the selected text in the ingame IME panel.",
+  "config.unselected-text-color.name": "Unselected Text Color",
+  "config.unselected-text-color.tooltip": "The color of the unselected text in the ingame IME panel.",
+  "config.composition-text-color.name": "Composition Text Color",
+  "config.composition-text-color.tooltip": "The color of the composition text in the ingame IME panel.",
+  "config.color-change-note": "Since Generic Mod Config Menu doesn't support color adjustments, please manually modify the config.json file to change the colors for [selected text/unselected text/composition text]."
+}

@@ -1,0 +1,12 @@
+{
+  "config.use-system-ime.name": "使用系统输入法界面",
+  "config.use-system-ime.tooltip": "是否在输入时使用系统输入法界面而非游戏内输入法界面。如果游戏内输入法面板不支持你的输入法（如出现无法显示等问题），请开启此选项。一般情况下不建议开启。",
+  "config.show-log-text.name": "显示调试信息",
+  "config.selected-text-color.name": "Selected Text Color",
+  "config.selected-text-color.tooltip": "The color of the selected text in the ingame IME panel.",
+  "config.unselected-text-color.name": "Unselected Text Color",
+  "config.unselected-text-color.tooltip": "The color of the unselected text in the ingame IME panel.",
+  "config.composition-text-color.name": "Composition Text Color",
+  "config.composition-text-color.tooltip": "The color of the composition text in the ingame IME panel.",
+  "config.color-change-note": "由于 Generic Mod Config Menu 不支持调整颜色，如要调整【选中文本/未选中文本/输入文本】的颜色，请自行更改config.json"
+}

@@ -2,7 +2,7 @@
   "Name": "输入法修复（Input Method Fix）",
   "Author": "Cyrilly",
   "Version": "%ProjectVersion%",
-  "Description": "解决星露谷卡输入法/候选框不可视问题",
+  "Description": "解决星露谷卡输入法/输入时摸黑问题，支持搜狗、微软、讯飞等输入法。",
   "UniqueID": "Cyrilly.InputMethodFix",
   "EntryDll": "InputMethodFix.dll",
   "MinimumApiVersion": "4.0.0",

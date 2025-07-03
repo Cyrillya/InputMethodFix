@@ -2,6 +2,9 @@
 
 using HarmonyLib;
 
+using InputMethodFix.Config;
+using InputMethodFix.Windows;
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -15,29 +18,35 @@ using StardewValley.Menus;
 
 using xTile.Tiles;
 
+using static InputMethodFix.SDL;
+
 namespace InputMethodFix;
 
 public class ModEntry : Mod
 {
+    internal static ModConfig Config;
+    internal static ModEntry Instance;
+
     public static IntPtr hImc;
     public static IntPtr hWnd;
+    private static WindowsMessageHook _wndProcHook;
+    private static WinImm32Ime WinImm32Ime;
 
-    public static IKeyboardSubscriber KeyboardSubscriber => Game1.keyboardDispatcher.Subscriber;
+    public static Game1 KeyboardFocusInstance => Game1.keyboardFocusInstance;
+    public static IKeyboardSubscriber KeyboardSubscriber => KeyboardFocusInstance.instanceKeyboardDispatcher.Subscriber;
     private static bool _oldIsTextInputSubscribed;
     public static bool IsTextInputSubscribed => KeyboardSubscriber is not null;
 
     public override void Entry(IModHelper helper)
     {
         // 初始化
-        hWnd = SDL.GetWin32Handle(Game1.game1.Window.Handle);
-        hImc = Imm.ImmGetContext(hWnd);
+        Instance = this;
+        Config = Helper.ReadConfig<ModConfig>();
+        Localization.Init(helper.Translation);
+        InitIME();
 
         // 游戏启动时，关闭输入法
-        helper.Events.GameLoop.GameLaunched += (_, _) =>
-        {
-            CandidateHandler.SetState(false);
-            SDL.SDL_StopTextInput();
-        };
+        helper.Events.GameLoop.GameLaunched += OnGameLaunched;
 
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
 
@@ -51,6 +60,33 @@ public class ModEntry : Mod
            original: AccessTools.Method(typeof(IClickableMenu), nameof(IClickableMenu.drawMouse)),
            prefix: new HarmonyMethod(typeof(ModEntry), nameof(RenderInputMethodInFullscreenMenu))
         );
+    }
+
+    public void InitIME()
+    {
+        if (!Game1.game1.IsMainInstance) return;
+
+        // 初始化IME状态
+        var windowHandle = Game1.game1.Window.Handle;
+        SDL_SysWMinfo info = new SDL_SysWMinfo();
+        SDL_GetVersion(out info.version);
+        SDL_GetWindowWMInfo(windowHandle, ref info);
+        hWnd = info.info.win.window;
+        hImc = NativeMethods.ImmGetContext(hWnd);
+
+        if (_wndProcHook == null)
+            _wndProcHook = new WindowsMessageHook(hWnd);
+
+        WinImm32Ime = new WinImm32Ime(_wndProcHook, hWnd);
+    }
+
+    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
+    {
+        // 初始禁用输入法
+        WinImm32Ime.Disable();
+        SDL_StopTextInput();
+
+        GenericModConfigMenuIntegration.Init();
     }
 
     public static void RenderInputMethodInFullscreenMenu(SpriteBatch b, bool ignore_transparency, int cursor)
@@ -67,19 +103,22 @@ public class ModEntry : Mod
     // 暂不支持除Windows以外的系统
     public static void RenderInputMethod(SpriteBatch spriteBatch)
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
-        if (!SDL.IsTextInputActive() || !IsTextInputSubscribed) return;
+        if (Config.UseSystemIME) return;
+        if (Constants.TargetPlatform is not GamePlatform.Windows) return;
+        if (!IsTextInputActive() || !IsTextInputSubscribed) return;
+        if (KeyboardFocusInstance != Game1.game1) return;
 
-        CandidateHandler.UpdateCandidateList();
+        WinImm32Ime.UpdateCandidateList();
 
         List<string> candidates = new List<string>();
-        for (uint num = 0u; num < CandidateHandler.CandidateCount; num++)
+        for (uint num = 0u; num < WinImm32Ime.CandidateCount; num++)
         {
-            string candidate = CandidateHandler.GetCandidate(num);
+            string candidate = WinImm32Ime.GetCandidate(num);
             candidates.Add(candidate);
         }
 
-        if (candidates.Count == 0)
+        string compositionString = WinImm32Ime.GetCompositionString();
+        if (string.IsNullOrWhiteSpace(compositionString))
             return;
 
         // 计算候选框宽高
@@ -87,22 +126,23 @@ public class ModEntry : Mod
         float scale = 0.77f;
         int innerPadding = 10;
         int outerPadding = 16;
-        float width = 0f;
-        int height = 64;
-        width += innerPadding;
-        string format = "{0,2}: {1}";
-        string split = "  ";
+        float candidatesWidth = 0f;
+        int height = candidates.Count == 0 ? font.LineSpacing : font.LineSpacing * 2 + 12;
+        height = (int) (height * scale);
+        candidatesWidth += innerPadding;
+        string format = "{0,2}. {1}";
         for (int i = 0; i < candidates.Count; i++)
         {
             int number = i + 1;
             string candidateText = format;
-            if (i < candidates.Count - 1)
-                candidateText += split;
 
             string displayText = string.Format(candidateText, number, candidates[i]);
-            width += font.MeasureString(displayText).X * scale;
-            width += innerPadding;
+            candidatesWidth += font.MeasureString(displayText).X * scale;
+            candidatesWidth += innerPadding;
         }
+
+        float compositionWidth = font.MeasureString(compositionString).X * scale + innerPadding * 2;
+        float width = Math.Max(candidatesWidth, compositionWidth);
 
         // 计算绘制位置
         Rectangle titleSafeArea = Game1.graphics.GraphicsDevice.Viewport.GetTitleSafeArea();
@@ -143,23 +183,23 @@ public class ModEntry : Mod
 
         // 绘制缓冲区文字
         Color shadowColor = SpriteText.color_Black * 0.3f;
-        var pos = new Vector2(x + innerPadding, y + 6);
-        string compositionString = CandidateHandler.GetCompositionString();
-        Utility.drawTextWithColoredShadow(spriteBatch, $" {compositionString}", font, pos, SpriteText.color_White, shadowColor, scale);
+        var pos = new Vector2(x + innerPadding, y + 7 * scale);
+        Utility.drawTextWithColoredShadow(spriteBatch, $"{compositionString}", font, pos, Config.CompositionTextColor, shadowColor, scale);
+
+        if (candidates.Count == 0)
+            return;
 
         // 绘制候选
-        uint selectedCandidate = CandidateHandler.SelectedCandidate;
-        pos = new Vector2(x + innerPadding, y + 36);
+        uint selectedCandidate = WinImm32Ime.SelectedCandidate;
+        pos = new Vector2(x + innerPadding, y + (font.LineSpacing + 9) * scale);
         for (int i = 0; i < candidates.Count; i++)
         {
-            Color color = SpriteText.color_White;
+            Color color = Config.UnselectedTextColor;
             if (i == selectedCandidate)
-                color = SpriteText.color_Cyan;
+                color = Config.SelectedTextColor;
 
             int number = i + 1;
             string candidateText = format;
-            if (i < candidates.Count - 1)
-                candidateText += split;
 
             string displayText = string.Format(candidateText, number, candidates[i]);
             Vector2 textSize = font.MeasureString(displayText) * scale;
@@ -171,25 +211,33 @@ public class ModEntry : Mod
     // 每帧检测输入状态是否更改，并切换SDL输入模式
     private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
-        if (_oldIsTextInputSubscribed != IsTextInputSubscribed)
+        if (!Game1.game1.IsMainInstance) return;
+        if (_oldIsTextInputSubscribed == IsTextInputSubscribed) return; // 检测更改
+
+        _oldIsTextInputSubscribed = IsTextInputSubscribed;
+
+        if (Config.ShowLogText)
         {
-            _oldIsTextInputSubscribed = IsTextInputSubscribed;
 
-            this.Monitor.Log($"检测到输入状态更改为 {IsTextInputSubscribed}", LogLevel.Debug);
+            Monitor.Log($"检测到输入状态更改为 {IsTextInputSubscribed}，手柄输入状态为 {Game1.options.gamepadControls}（正常情况下，该值应永远为False）", LogLevel.Debug);
+            if (Context.IsSplitScreen)
+            {
+                Monitor.Log($"当前为分屏状态，执行输入操作的屏幕ID为 {KeyboardFocusInstance.instanceId}", LogLevel.Debug);
+            }
+        }
 
-            if (IsTextInputSubscribed)
-            {
-                CandidateHandler.SetState(true);
-                // 开启输入模式
-                SDL.SDL_StartTextInput();
-                // 尝试让系统输入法框绘制在输入框的下面，但是好像没用，不管了，反正我自己绘制输入法框（
-                // StartTextInputAtSubscriber();
-            }
-            else
-            {
-                CandidateHandler.SetState(false);
-                SDL.SDL_StopTextInput();
-            }
+        if (IsTextInputSubscribed)
+        {
+            WinImm32Ime.Enable();
+            // 开启输入模式
+            SDL_StartTextInput();
+            // 尝试让系统输入法框绘制在输入框的下面，但是好像没用，不管了，反正我自己绘制输入法框（
+            //StartTextInputAtSubscriber();
+        }
+        else
+        {
+            WinImm32Ime.Disable();
+            SDL_StopTextInput();
         }
     }
 
@@ -197,11 +245,11 @@ public class ModEntry : Mod
     {
         if (KeyboardSubscriber is not TextBox textBox)
         {
-            SDL.SDL_StartTextInput();
+            SDL_StartTextInput();
             return;
         }
 
-        SDL.SetTextInputRect(new Rectangle(textBox.X, textBox.Y, textBox.Width, textBox.Height));
-        SDL.SDL_StartTextInput();
+        SetTextInputRect(new Rectangle(textBox.X, textBox.Y, textBox.Width, textBox.Height));
+        SDL_StartTextInput();
     }
 }

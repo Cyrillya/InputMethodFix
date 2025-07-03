@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 
-namespace InputMethodFix;
+namespace InputMethodFix.Windows;
 
-public partial class Imm
+public partial class NativeMethods
 {
     [DllImport("Imm32.dll")]
     public static extern bool ImmGetOpenStatus(IntPtr hImc);
@@ -40,4 +40,13 @@ public partial class Imm
 
     [DllImport("Imm32.dll", CharSet = CharSet.Unicode)]
     public static extern bool ImmNotifyIME(IntPtr hImc, uint dwAction, uint dwIndex, uint dwValue);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr GetForegroundWindow();
 }
