@@ -2,7 +2,7 @@
 
 <div align="center">
 
-📥 [Nexus下载](https://www.nexusmods.com/stardewvalley/mods/35313) | 📥 [Github下载](https://github.com/Cyrillya/InputMethodFix/releases/latest)
+📥 [Nexus下载](https://www.nexusmods.com/stardewvalley/mods/35313) | 📥 [Github下载](https://github.com/Cyrillya/InputMethodFix/releases/latest) | 📺 [B站视频演示](https://www.bilibili.com/video/BV1d23uzwEmU)
 
 本模组致力于解决星露谷卡输入法/输入时无法显示候选只能摸黑等问题
 支持搜狗、微软、讯飞等输入法
