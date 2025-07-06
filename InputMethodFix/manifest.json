@@ -6,5 +6,5 @@
   "UniqueID": "Cyrilly.InputMethodFix",
   "EntryDll": "InputMethodFix.dll",
   "MinimumApiVersion": "4.0.0",
-  "UpdateKeys": []
+  "UpdateKeys": [ "Nexus:35313", "GitHub:Cyrillya/InputMethodFix" ]
 }
