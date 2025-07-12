@@ -1,4 +1,6 @@
 {
+  "config.dummy-input-box.name": "Input Box for Test",
+  "config.dummy-input-box.tooltip": "A dummy input box for test purpose.",
   "config.use-system-ime.name": "Use System IME",
   "config.use-system-ime.tooltip": "Whether to use system IME instead of ingame IME when typing. Turn this on if the ingame IME panel doesn't support your IME. Not recommended to turn it on.",
   "config.show-log-text.name": "Show Debug Text",
@@ -8,5 +10,5 @@
   "config.unselected-text-color.tooltip": "The color of the unselected text in the ingame IME panel.",
   "config.composition-text-color.name": "Composition Text Color",
   "config.composition-text-color.tooltip": "The color of the composition text in the ingame IME panel.",
-  "config.color-change-note": "Since Generic Mod Config Menu doesn't support color adjustments, please manually modify the config.json file to change the colors for [selected text/unselected text/composition text]."
+  "config.color-change-note": "Since Generic Mod Config Menu doesn't support color adjustments, please manually modify the config.json file to change the colors for [selected text/unselected text/composition text]. You can download GMCM Options Mod to adjust colors via GUI as well, link here: https://www.nexusmods.com/stardewvalley/mods/10505"
 }

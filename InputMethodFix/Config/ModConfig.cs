@@ -6,6 +6,7 @@ namespace InputMethodFix.Config;
 
 internal sealed class ModConfig
 {
+    public string DummyInputBox { get; set; } = "";
     public bool UseSystemIME { get; set; } = false;
     public bool ShowLogText { get; set; } = false;
     public Color SelectedTextColor { get; set; } = SpriteText.color_Cyan;

@@ -1,0 +1,12 @@
+﻿{
+  "config.use-system-ime.name": "Sử dụng IME hệ thống",
+  "config.use-system-ime.tooltip": "Có sử dụng IME của hệ điều hành thay cho IME trong game khi nhập liệu hay không. Bật tùy chọn này nếu bảng IME trong game không hỗ trợ IME của bạn. Không khuyến khích bật tùy chọn này.",
+  "config.show-log-text.name": "Hiển thị văn bản debug",
+  "config.selected-text-color.name": "Màu chữ đã chọn",
+  "config.selected-text-color.tooltip": "Màu của chữ được chọn trong bảng IME trong game.",
+  "config.unselected-text-color.name": "Màu chữ chưa chọn",
+  "config.unselected-text-color.tooltip": "Màu của chữ chưa được chọn trong bảng IME trong game.",
+  "config.composition-text-color.name": "Màu chữ đang nhập",
+  "config.composition-text-color.tooltip": "Màu của chữ đang nhập trong bảng IME trong game.",
+  "config.color-change-note": "Vì Generic Mod Config Menu không hỗ trợ điều chỉnh màu, vui lòng chỉnh trực tiếp file config.json để thay đổi màu cho [selected text/unselected text/composition text]."
+}

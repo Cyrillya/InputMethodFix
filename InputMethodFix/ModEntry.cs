@@ -36,6 +36,7 @@ public class ModEntry : Mod
     public static IKeyboardSubscriber? KeyboardSubscriber => KeyboardFocusInstance?.instanceKeyboardDispatcher?.Subscriber;
     private static bool _oldIsTextInputSubscribed;
     public static bool IsTextInputSubscribed => KeyboardSubscriber != null;
+    private static bool _imeDrawnThisTick;
 
     public override void Entry(IModHelper helper)
     {
@@ -49,12 +50,13 @@ public class ModEntry : Mod
         helper.Events.GameLoop.GameLaunched += OnGameLaunched;
 
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
+        helper.Events.Display.Rendering += (sender, e) => { _imeDrawnThisTick = false; };
 
         // 为了确保是绘制到鼠标下层，必须用Harmony了
         var harmony = new Harmony(ModManifest.UniqueID);
         var drawMouseCursorMethod = AccessTools.Method(typeof(Game1), nameof(Game1.drawMouseCursor));
         var drawMouseMethod = AccessTools.Method(typeof(IClickableMenu), nameof(IClickableMenu.drawMouse));
-        
+
         if (drawMouseCursorMethod != null)
         {
             harmony.Patch(
@@ -62,7 +64,7 @@ public class ModEntry : Mod
                 prefix: new HarmonyMethod(typeof(ModEntry), nameof(RenderInputMethodNotInFullscreenMenu))
             );
         }
-        
+
         if (drawMouseMethod != null)
         {
             harmony.Patch(
@@ -108,16 +110,26 @@ public class ModEntry : Mod
         RenderInputMethod(Game1.spriteBatch);
     }
 
-    // 由于全屏模式下不显示输入法候选，所以要自行绘制输入法，类似泰拉瑞亚
-    // 暂不支持除Windows以外的系统
     public static void RenderInputMethod(SpriteBatch spriteBatch)
     {
+    // 设置中开启
         if (Config?.UseSystemIME == true) return;
+        // 暂不支持Linux，OSX
         if (Constants.TargetPlatform is not GamePlatform.Windows) return;
+        // 你得先在打字
         if (!IsTextInputActive() || !IsTextInputSubscribed) return;
+        // 多人同屏模式下，绘制到正在输入的屏幕
         if (Game1.game1 == null || KeyboardFocusInstance != Game1.game1) return;
+        // WinImm32Ime至少得先实例化，不然哪来的输入法信息
         if (WinImm32Ime == null) return;
 
+        RenderInputMethodInner(spriteBatch);
+    }
+
+    // 由于全屏模式下不显示输入法候选，所以要自行绘制输入法，类似泰拉瑞亚
+    // 暂不支持除Windows以外的系统
+    public static void RenderInputMethodInner(SpriteBatch spriteBatch)
+    {
         WinImm32Ime.UpdateCandidateList();
 
         List<string> candidates = new List<string>();
@@ -191,12 +203,12 @@ public class ModEntry : Mod
         }
 
         // 绘制框
-        Game1.DrawBox((int) x, (int) y, (int) width, height);
+        Utils.DrawBox(spriteBatch, (int) x, (int) y, (int) width, height);
 
         // 绘制缓冲区文字
-        Color shadowColor = SpriteText.color_Black * 0.3f;
         var pos = new Vector2(x + innerPadding, y + 7 * scale);
-        Utility.drawTextWithColoredShadow(spriteBatch, $"{compositionString}", font, pos, Config.CompositionTextColor, shadowColor, scale);
+        
+        Utils.DrawTextWithAutoShadow(spriteBatch, $"{compositionString}", font, pos, Config.CompositionTextColor, scale);
 
         if (candidates.Count == 0)
             return;
@@ -215,7 +227,7 @@ public class ModEntry : Mod
 
             string displayText = string.Format(candidateText, number, candidates[i]);
             Vector2 textSize = font.MeasureString(displayText) * scale;
-            Utility.drawTextWithColoredShadow(spriteBatch, displayText, font, pos, color, shadowColor, scale);
+            Utils.DrawTextWithAutoShadow(spriteBatch, displayText, font, pos, color, scale);
             pos.X += textSize.X + innerPadding;
         }
     }
