@@ -40,6 +40,9 @@ namespace InputMethodFix;
 
 internal static class SDL
 {
+    //针对MacOS修改：避免MacOS下解析失败修改库名，需要复核Windows端情况
+    private const string NativeLibName = "SDL2-2.0.0";
+
     // FIXME: I wish these weren't public...
     [StructLayout(LayoutKind.Sequential)]
     public struct INTERNAL_windows_wminfo
@@ -189,6 +192,8 @@ internal static class SDL
         SDL_FALSE = 0,
         SDL_TRUE = 1
     }
+    //针对MacOS修改:允许SDL请求系统原声IME UI，用于显示系统输入法候选窗口
+    public const string SDL_HINT_IME_SHOW_UI = "SDL_IME_SHOW_UI";
 
     [StructLayout(LayoutKind.Sequential)]
     public struct SDL_Rect
@@ -215,22 +220,29 @@ internal static class SDL
         public byte patch;
     }
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    //针对MasOS修改:SDL hint借口，用于设置IME等运行时行为。
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern SDL_bool SDL_SetHint(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string value
+    );
+
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void SDL_StartTextInput();
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void SDL_StopTextInput();
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern SDL_bool SDL_IsTextInputActive();
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern void SDL_SetTextInputRect(ref SDL_Rect rect);
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern SDL_bool SDL_GetWindowWMInfo(IntPtr window, ref SDL_SysWMinfo info);
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern void SDL_GetVersion(out SDL_version x);
 
     public static bool ParseToCSharpBool(SDL_bool SdlBool) => SdlBool switch
@@ -242,16 +254,24 @@ internal static class SDL
 
     public static bool IsTextInputActive() => ParseToCSharpBool(SDL_IsTextInputActive());
 
+    //针对MacOS修改:启用系统原生IME UI，实测窗口模式下系统候选窗口可见，全屏模式不可见。
+    //推测与SDL/MonoGame全屏窗口层级或MacoS全屏Space有关。
+    public static bool EnableNativeImeUi()
+    {
+        return ParseToCSharpBool(SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1"));
+    }
+
+    //针对MacOS修改:设置文本输入区域，供系统输入法定位候选窗口。
     public static void SetTextInputRect(Rectangle rect)
     {
-        SDL_Rect SDL_Rect = new()
+        SDL_Rect sdlRect = new()
         {
             x = rect.X,
             y = rect.Y,
             w = rect.Width,
             h = rect.Height
         };
-        SDL_SetTextInputRect(ref SDL_Rect);
+        SDL_SetTextInputRect(ref sdlRect);
     }
 
     /// <summary>

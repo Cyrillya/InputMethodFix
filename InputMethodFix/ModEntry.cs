@@ -74,29 +74,42 @@ public class ModEntry : Mod
         }
     }
 
+    //针对MacOS修改:判断操作系统，Windows执行逻辑不变，MacOS下只开启SDL原生IME UI
     public void InitIME()
     {
-        if (Game1.game1?.IsMainInstance != true) return;
-        if (Game1.game1.Window?.Handle == null) return;
+        if (Game1.game1?.IsMainInstance != true)
+            return;
 
-        // 初始化IME状态
-        var windowHandle = Game1.game1.Window.Handle;
-        SDL_SysWMinfo info = new SDL_SysWMinfo();
-        SDL_GetVersion(out info.version);
-        SDL_GetWindowWMInfo(windowHandle, ref info);
-        hWnd = info.info.win.window;
-        hImc = NativeMethods.ImmGetContext(hWnd);
+        if (Game1.game1.Window?.Handle == null)
+            return;
 
-        _wndProcHook ??= new WindowsMessageHook(hWnd);
-        WinImm32Ime ??= new WinImm32Ime(_wndProcHook, hWnd);
+        if (Constants.TargetPlatform is GamePlatform.Windows)
+        {
+            // Windows保留原有Win32/Imm32候选词实现。
+            var windowHandle = Game1.game1.Window.Handle;
+            SDL_SysWMinfo info = new SDL_SysWMinfo();
+            SDL_GetVersion(out info.version);
+            SDL_GetWindowWMInfo(windowHandle, ref info);
+
+            hWnd = info.info.win.window;
+            hImc = NativeMethods.ImmGetContext(hWnd);
+            _wndProcHook ??= new WindowsMessageHook(hWnd);
+            WinImm32Ime ??= new WinImm32Ime(_wndProcHook, hWnd);
+        }
+        else if (Constants.TargetPlatform is GamePlatform.Mac)
+        {
+            // MacOS不使用Windows专用IME逻辑，SDL文本输入在文本框获得焦点时再启用。
+            //EnableNativeImeUi();
+        }
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
     {
-        // 初始禁用输入法
-        WinImm32Ime?.Disable();
-        SDL_StopTextInput();
+        //针对MacOS修改:增加平台判断；初始禁用输入法
+        if (Constants.TargetPlatform is GamePlatform.Windows)
+            WinImm32Ime?.Disable();
 
+        SDL_StopTextInput();
         GenericModConfigMenuIntegration.Init();
     }
 
@@ -207,7 +220,7 @@ public class ModEntry : Mod
 
         // 绘制缓冲区文字
         var pos = new Vector2(x + innerPadding, y + 7 * scale);
-        
+
         Utils.DrawTextWithAutoShadow(spriteBatch, $"{compositionString}", font, pos, Config.CompositionTextColor, scale);
 
         if (candidates.Count == 0)
@@ -252,28 +265,64 @@ public class ModEntry : Mod
 
         if (IsTextInputSubscribed)
         {
-            WinImm32Ime?.Enable();
-            // 开启输入模式
-            SDL_StartTextInput();
-            // 尝试让系统输入法框绘制在输入框的下面，但是好像没用，不管了，反正我自己绘制输入法框（
-            //StartTextInputAtSubscriber();
+            //针对Macos修改:增加操作系统平台判断
+            if (Constants.TargetPlatform is GamePlatform.Windows)
+                WinImm32Ime?.Enable();
+            //针对MacOS修改：未聚焦文本框时关闭SDL文本输入，避免macOS中文输入法积累隐藏组合文本。
+            //SDL_StartTextInput();
+            //针对MacOS修改:改用此调用；尝试让系统输入法框绘制在输入框的下面，但是好像没用，不管了，反正我自己绘制输入法框（
+            StartTextInputAtSubscriber();
         }
         else
         {
-            WinImm32Ime?.Disable();
+            //针对MacOS修改:增加操作系统平台判断
+            if (Constants.TargetPlatform is GamePlatform.Windows)
+                WinImm32Ime?.Disable();
+
             SDL_StopTextInput();
         }
     }
 
+    //针对MasOS修改:先设置输入区域，再启动SDL文本输入。
     private void StartTextInputAtSubscriber()
     {
-        if (KeyboardSubscriber is not TextBox textBox)
-        {
-            SDL_StartTextInput();
-            return;
-        }
+        if (Constants.TargetPlatform is GamePlatform.Mac)
+            EnableNativeImeUi();
 
-        SetTextInputRect(new Rectangle(textBox.X, textBox.Y, textBox.Width, textBox.Height));
+        Rectangle rect = GetTextInputRectForSubscriber();
+        SetTextInputRect(rect);
         SDL_StartTextInput();
     }
+
+    private Rectangle GetTextInputRectForSubscriber()
+    {
+        if (KeyboardSubscriber is TextBox textBox)
+        {
+            var font = textBox.Font ?? Game1.dialogueFont;
+            string textForCalc = textBox.Text ?? "";
+
+            if (string.IsNullOrEmpty(textForCalc) || textForCalc.EndsWith('\n'))
+                textForCalc += "H";
+
+            Vector2 textSize = font.MeasureString(textForCalc);
+
+            int x = (int)(textBox.X + 16 + textSize.X);
+            int y = (int)(textBox.Y + 10 + textSize.Y);
+
+            return new Rectangle(x, y, 4, font.LineSpacing + 8);
+        }
+
+        return new Rectangle(Game1.getMouseX(), Game1.getMouseY(), 4, Game1.dialogueFont.LineSpacing + 8);
+    }
+    //private void StartTextInputAtSubscriber()
+    //{
+    //    if (KeyboardSubscriber is not TextBox textBox)
+    //    {
+    //        SDL_StartTextInput();
+    //        return;
+    //    }
+
+    //    SetTextInputRect(new Rectangle(textBox.X, textBox.Y, textBox.Width, textBox.Height));
+    //    SDL_StartTextInput();
+    //}
 }
