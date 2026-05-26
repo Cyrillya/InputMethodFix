@@ -40,8 +40,54 @@ namespace InputMethodFix;
 
 internal static class SDL
 {
-    //针对MacOS修改：避免MacOS下解析失败修改库名，需要复核Windows端情况
-    private const string NativeLibName = "SDL2-2.0.0";
+    private const string NativeLibName = "SDL2";
+
+    private static IntPtr s_sdlHandle = IntPtr.Zero;
+
+    static SDL()
+    {
+        // 使用 SetDllImportResolver 解决不同平台库名不一致问题
+        try
+        {
+            NativeLibrary.SetDllImportResolver(typeof(SDL).Assembly, DllImportResolver);
+        }
+        catch { }
+    }
+
+    private static IntPtr DllImportResolver(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (libraryName != NativeLibName)
+            return IntPtr.Zero;
+
+        if (s_sdlHandle != IntPtr.Zero)
+            return s_sdlHandle;
+
+        string[] candidates;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            candidates = new[] { "SDL2-2.0.0", "libSDL2-2.0.0.dylib", "SDL2" };
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            candidates = new[] { "libSDL2-2.0.so.0", "libSDL2-2.0.so", "SDL2" };
+        else // Windows and others
+            candidates = new[] { "SDL2.dll", "SDL2" };
+
+        foreach (var name in candidates)
+        {
+            try
+            {
+                if (NativeLibrary.TryLoad(name, out var handle))
+                {
+                    s_sdlHandle = handle;
+                    return handle;
+                }
+            }
+            catch
+            {
+                // ignore and try next candidate
+            }
+        }
+
+        return IntPtr.Zero;
+    }
 
     // FIXME: I wish these weren't public...
     [StructLayout(LayoutKind.Sequential)]
@@ -254,14 +300,13 @@ internal static class SDL
 
     public static bool IsTextInputActive() => ParseToCSharpBool(SDL_IsTextInputActive());
 
-    //针对MacOS修改:启用系统原生IME UI，实测窗口模式下系统候选窗口可见，全屏模式不可见。
-    //推测与SDL/MonoGame全屏窗口层级或MacoS全屏Space有关。
+    // 在 MacOS 尝试使用系统原生 IME UI，目前问题是全屏模式下依旧看不到
     public static bool EnableNativeImeUi()
     {
         return ParseToCSharpBool(SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1"));
     }
 
-    //针对MacOS修改:设置文本输入区域，供系统输入法定位候选窗口。
+    // 设置文本输入区域，供系统输入法定位候选窗口
     public static void SetTextInputRect(Rectangle rect)
     {
         SDL_Rect sdlRect = new()

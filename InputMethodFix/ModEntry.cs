@@ -74,7 +74,7 @@ public class ModEntry : Mod
         }
     }
 
-    //针对MacOS修改:判断操作系统，Windows执行逻辑不变，MacOS下只开启SDL原生IME UI
+    // 针对MacOS修改: 判断操作系统，Windows执行逻辑不变，MacOS下只开启SDL原生IME UI
     public void InitIME()
     {
         if (Game1.game1?.IsMainInstance != true)
@@ -85,7 +85,7 @@ public class ModEntry : Mod
 
         if (Constants.TargetPlatform is GamePlatform.Windows)
         {
-            // Windows保留原有Win32/Imm32候选词实现。
+            
             var windowHandle = Game1.game1.Window.Handle;
             SDL_SysWMinfo info = new SDL_SysWMinfo();
             SDL_GetVersion(out info.version);
@@ -99,13 +99,13 @@ public class ModEntry : Mod
         else if (Constants.TargetPlatform is GamePlatform.Mac)
         {
             // MacOS不使用Windows专用IME逻辑，SDL文本输入在文本框获得焦点时再启用。
-            //EnableNativeImeUi();
+            // EnableNativeImeUi();
         }
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
     {
-        //针对MacOS修改:增加平台判断；初始禁用输入法
+        // 针对MacOS修改: 增加平台判断；初始禁用输入法
         if (Constants.TargetPlatform is GamePlatform.Windows)
             WinImm32Ime?.Disable();
 
@@ -125,7 +125,7 @@ public class ModEntry : Mod
 
     public static void RenderInputMethod(SpriteBatch spriteBatch)
     {
-    // 设置中开启
+        // 设置中开启
         if (Config?.UseSystemIME == true) return;
         // 暂不支持Linux，OSX
         if (Constants.TargetPlatform is not GamePlatform.Windows) return;
@@ -255,7 +255,6 @@ public class ModEntry : Mod
 
         if (Config.ShowLogText)
         {
-
             Monitor.Log($"检测到输入状态更改为 {IsTextInputSubscribed}，手柄输入状态为 {Game1.options.gamepadControls}（正常情况下，该值应永远为False）", LogLevel.Debug);
             if (Context.IsSplitScreen)
             {
@@ -265,17 +264,14 @@ public class ModEntry : Mod
 
         if (IsTextInputSubscribed)
         {
-            //针对Macos修改:增加操作系统平台判断
             if (Constants.TargetPlatform is GamePlatform.Windows)
                 WinImm32Ime?.Enable();
-            //针对MacOS修改：未聚焦文本框时关闭SDL文本输入，避免macOS中文输入法积累隐藏组合文本。
-            //SDL_StartTextInput();
-            //针对MacOS修改:改用此调用；尝试让系统输入法框绘制在输入框的下面，但是好像没用，不管了，反正我自己绘制输入法框（
+            
+            // 开启捕获输入时，也设置输入框位置
             StartTextInputAtSubscriber();
         }
         else
         {
-            //针对MacOS修改:增加操作系统平台判断
             if (Constants.TargetPlatform is GamePlatform.Windows)
                 WinImm32Ime?.Disable();
 
@@ -283,7 +279,6 @@ public class ModEntry : Mod
         }
     }
 
-    //针对MasOS修改:先设置输入区域，再启动SDL文本输入。
     private void StartTextInputAtSubscriber()
     {
         if (Constants.TargetPlatform is GamePlatform.Mac)
@@ -314,15 +309,4 @@ public class ModEntry : Mod
 
         return new Rectangle(Game1.getMouseX(), Game1.getMouseY(), 4, Game1.dialogueFont.LineSpacing + 8);
     }
-    //private void StartTextInputAtSubscriber()
-    //{
-    //    if (KeyboardSubscriber is not TextBox textBox)
-    //    {
-    //        SDL_StartTextInput();
-    //        return;
-    //    }
-
-    //    SetTextInputRect(new Rectangle(textBox.X, textBox.Y, textBox.Width, textBox.Height));
-    //    SDL_StartTextInput();
-    //}
 }
