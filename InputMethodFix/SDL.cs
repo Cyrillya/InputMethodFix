@@ -238,7 +238,7 @@ internal static class SDL
         SDL_FALSE = 0,
         SDL_TRUE = 1
     }
-    //针对MacOS修改:允许SDL请求系统原声IME UI，用于显示系统输入法候选窗口
+    // 针对MacOS修改: 允许SDL请求系统原生 IME UI，用于显示系统输入法候选窗口
     public const string SDL_HINT_IME_SHOW_UI = "SDL_IME_SHOW_UI";
 
     [StructLayout(LayoutKind.Sequential)]
@@ -266,7 +266,7 @@ internal static class SDL
         public byte patch;
     }
 
-    //针对MasOS修改:SDL hint借口，用于设置IME等运行时行为。
+    // 针对MacOS修改: SDL hint借口，用于设置IME等运行时行为。
     [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern SDL_bool SDL_SetHint(
         [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
