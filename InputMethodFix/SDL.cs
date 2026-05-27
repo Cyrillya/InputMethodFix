@@ -40,6 +40,55 @@ namespace InputMethodFix;
 
 internal static class SDL
 {
+    private const string NativeLibName = "SDL2";
+
+    private static IntPtr s_sdlHandle = IntPtr.Zero;
+
+    static SDL()
+    {
+        // 使用 SetDllImportResolver 解决不同平台库名不一致问题
+        try
+        {
+            NativeLibrary.SetDllImportResolver(typeof(SDL).Assembly, DllImportResolver);
+        }
+        catch { }
+    }
+
+    private static IntPtr DllImportResolver(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (libraryName != NativeLibName)
+            return IntPtr.Zero;
+
+        if (s_sdlHandle != IntPtr.Zero)
+            return s_sdlHandle;
+
+        string[] candidates;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            candidates = new[] { "SDL2-2.0.0", "libSDL2-2.0.0.dylib", "SDL2" };
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            candidates = new[] { "libSDL2-2.0.so.0", "libSDL2-2.0.so", "SDL2" };
+        else // Windows and others
+            candidates = new[] { "SDL2.dll", "SDL2" };
+
+        foreach (var name in candidates)
+        {
+            try
+            {
+                if (NativeLibrary.TryLoad(name, out var handle))
+                {
+                    s_sdlHandle = handle;
+                    return handle;
+                }
+            }
+            catch
+            {
+                // ignore and try next candidate
+            }
+        }
+
+        return IntPtr.Zero;
+    }
+
     // FIXME: I wish these weren't public...
     [StructLayout(LayoutKind.Sequential)]
     public struct INTERNAL_windows_wminfo
@@ -189,6 +238,8 @@ internal static class SDL
         SDL_FALSE = 0,
         SDL_TRUE = 1
     }
+    // 针对MacOS修改: 允许SDL请求系统原生 IME UI，用于显示系统输入法候选窗口
+    public const string SDL_HINT_IME_SHOW_UI = "SDL_IME_SHOW_UI";
 
     [StructLayout(LayoutKind.Sequential)]
     public struct SDL_Rect
@@ -215,22 +266,29 @@ internal static class SDL
         public byte patch;
     }
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    // 针对MacOS修改: SDL hint借口，用于设置IME等运行时行为。
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern SDL_bool SDL_SetHint(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string value
+    );
+
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void SDL_StartTextInput();
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void SDL_StopTextInput();
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern SDL_bool SDL_IsTextInputActive();
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern void SDL_SetTextInputRect(ref SDL_Rect rect);
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern SDL_bool SDL_GetWindowWMInfo(IntPtr window, ref SDL_SysWMinfo info);
 
-    [DllImport("SDL2.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(NativeLibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern void SDL_GetVersion(out SDL_version x);
 
     public static bool ParseToCSharpBool(SDL_bool SdlBool) => SdlBool switch
@@ -242,16 +300,23 @@ internal static class SDL
 
     public static bool IsTextInputActive() => ParseToCSharpBool(SDL_IsTextInputActive());
 
+    // 在 MacOS 尝试使用系统原生 IME UI，目前问题是全屏模式下依旧看不到
+    public static bool EnableNativeImeUi()
+    {
+        return ParseToCSharpBool(SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1"));
+    }
+
+    // 设置文本输入区域，供系统输入法定位候选窗口
     public static void SetTextInputRect(Rectangle rect)
     {
-        SDL_Rect SDL_Rect = new()
+        SDL_Rect sdlRect = new()
         {
             x = rect.X,
             y = rect.Y,
             w = rect.Width,
             h = rect.Height
         };
-        SDL_SetTextInputRect(ref SDL_Rect);
+        SDL_SetTextInputRect(ref sdlRect);
     }
 
     /// <summary>
