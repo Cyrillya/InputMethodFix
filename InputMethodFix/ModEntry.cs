@@ -4,6 +4,7 @@ using HarmonyLib;
 
 using InputMethodFix.Config;
 using InputMethodFix.Windows;
+using InputMethodFix.MacOS;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -31,6 +32,7 @@ public class ModEntry : Mod
     public static IntPtr hWnd;
     private static WindowsMessageHook _wndProcHook;
     private static WinImm32Ime WinImm32Ime;
+    internal static MacImeService? MacImeService;
 
     public static Game1 KeyboardFocusInstance => Game1.keyboardFocusInstance;
     public static IKeyboardSubscriber? KeyboardSubscriber => KeyboardFocusInstance?.instanceKeyboardDispatcher?.Subscriber;
@@ -98,8 +100,14 @@ public class ModEntry : Mod
         }
         else if (Constants.TargetPlatform is GamePlatform.Mac)
         {
-            // MacOS不使用Windows专用IME逻辑，SDL文本输入在文本框获得焦点时再启用。
-            // EnableNativeImeUi();
+            var windowHandle = Game1.game1.Window.Handle;
+            SDL_SysWMinfo info = new SDL_SysWMinfo();
+            SDL_GetVersion(out info.version);
+            SDL_GetWindowWMInfo(windowHandle, ref info);
+
+            IntPtr nsWindow = info.info.cocoa.window;
+            MacImeService = new MacImeService(nsWindow);
+            DisableFullscreenSpaces();
         }
     }
 
@@ -108,6 +116,8 @@ public class ModEntry : Mod
         // 针对MacOS修改: 增加平台判断；初始禁用输入法
         if (Constants.TargetPlatform is GamePlatform.Windows)
             WinImm32Ime?.Disable();
+        else if (Constants.TargetPlatform is GamePlatform.Mac)
+            MacImeService?.Disable();
 
         SDL_StopTextInput();
         GenericModConfigMenuIntegration.Init();
@@ -127,7 +137,7 @@ public class ModEntry : Mod
     {
         // 设置中开启
         if (Config?.UseSystemIME == true) return;
-        // 暂不支持Linux，OSX
+        // macOS 使用系统原生 IME，无需自定义绘制
         if (Constants.TargetPlatform is not GamePlatform.Windows) return;
         // 你得先在打字
         if (!IsTextInputActive() || !IsTextInputSubscribed) return;
@@ -266,6 +276,8 @@ public class ModEntry : Mod
         {
             if (Constants.TargetPlatform is GamePlatform.Windows)
                 WinImm32Ime?.Enable();
+            else if (Constants.TargetPlatform is GamePlatform.Mac)
+                MacImeService?.Enable();
             
             // 开启捕获输入时，也设置输入框位置
             StartTextInputAtSubscriber();
@@ -274,6 +286,8 @@ public class ModEntry : Mod
         {
             if (Constants.TargetPlatform is GamePlatform.Windows)
                 WinImm32Ime?.Disable();
+            else if (Constants.TargetPlatform is GamePlatform.Mac)
+                MacImeService?.Disable();
 
             SDL_StopTextInput();
         }

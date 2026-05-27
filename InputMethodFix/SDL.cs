@@ -240,6 +240,7 @@ internal static class SDL
     }
     // 针对MacOS修改: 允许SDL请求系统原生 IME UI，用于显示系统输入法候选窗口
     public const string SDL_HINT_IME_SHOW_UI = "SDL_IME_SHOW_UI";
+    public const string SDL_HINT_MAC_FULLSCREEN_SPACES = "SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES";
 
     [StructLayout(LayoutKind.Sequential)]
     public struct SDL_Rect
@@ -300,10 +301,16 @@ internal static class SDL
 
     public static bool IsTextInputActive() => ParseToCSharpBool(SDL_IsTextInputActive());
 
-    // 在 MacOS 尝试使用系统原生 IME UI，目前问题是全屏模式下依旧看不到
+    // 在 MacOS 尝试使用系统原生 IME UI
     public static bool EnableNativeImeUi()
     {
         return ParseToCSharpBool(SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1"));
+    }
+
+    // 禁用 macOS Native Fullscreen Spaces，使全屏使用 borderless 模式，确保 IME 候选窗口可见
+    public static void DisableFullscreenSpaces()
+    {
+        SDL_SetHint(SDL_HINT_MAC_FULLSCREEN_SPACES, "0");
     }
 
     // 设置文本输入区域，供系统输入法定位候选窗口
