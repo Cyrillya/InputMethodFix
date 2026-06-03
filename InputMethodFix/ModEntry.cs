@@ -37,6 +37,8 @@ public class ModEntry : Mod
     public static Game1 KeyboardFocusInstance => Game1.keyboardFocusInstance;
     public static IKeyboardSubscriber? KeyboardSubscriber => KeyboardFocusInstance?.instanceKeyboardDispatcher?.Subscriber;
     private static bool _oldIsTextInputSubscribed;
+    // 修改 MacOS 输入框位置
+    private static int _macRefreshTextInputRectTicks;
     public static bool IsTextInputSubscribed => KeyboardSubscriber != null;
     private static bool _imeDrawnThisTick;
 
@@ -87,7 +89,7 @@ public class ModEntry : Mod
 
         if (Constants.TargetPlatform is GamePlatform.Windows)
         {
-            
+
             var windowHandle = Game1.game1.Window.Handle;
             SDL_SysWMinfo info = new SDL_SysWMinfo();
             SDL_GetVersion(out info.version);
@@ -254,7 +256,7 @@ public class ModEntry : Mod
             pos.X += textSize.X + innerPadding;
         }
     }
-
+    /* 输入框位置采用默认在屏幕左上角
     // 每帧检测输入状态是否更改，并切换SDL输入模式
     private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
@@ -278,7 +280,7 @@ public class ModEntry : Mod
                 WinImm32Ime?.Enable();
             else if (Constants.TargetPlatform is GamePlatform.Mac)
                 MacImeService?.Enable();
-            
+
             // 开启捕获输入时，也设置输入框位置
             StartTextInputAtSubscriber();
         }
@@ -290,6 +292,64 @@ public class ModEntry : Mod
                 MacImeService?.Disable();
 
             SDL_StopTextInput();
+        }
+    }
+    */
+    // MacOS 窗口层级切换后，连续几帧刷新输入区域以使候选词窗口移到文字输入位置下方
+    // 每帧检测输入状态是否更改，并切换SDL输入模式
+    private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
+    {
+        if (Game1.game1?.IsMainInstance != true)
+            return;
+
+        bool inputStateChanged = _oldIsTextInputSubscribed != IsTextInputSubscribed;
+
+        if (inputStateChanged)
+        {
+            if (Config.ShowLogText)
+            {
+                Monitor.Log($"检测到输入状态更改为 {IsTextInputSubscribed}，手柄输入状态为 {Game1.options.gamepadControls}（正常情况下，该值应永远为False）", LogLevel.Debug);
+                if (Context.IsSplitScreen)
+                {
+                    Monitor.Log($"当前为分屏状态，执行输入操作的屏幕ID为 {KeyboardFocusInstance.instanceId}", LogLevel.Debug);
+                }
+            }
+
+            if (IsTextInputSubscribed)
+            {
+                if (Constants.TargetPlatform is GamePlatform.Windows)
+                {
+                    WinImm32Ime?.Enable();
+                }
+                else if (Constants.TargetPlatform is GamePlatform.Mac)
+                {
+                    MacImeService?.Enable();
+
+                    // macOS下切换窗口层级后，输入法定位区域可能需要等待窗口状态稳定后重新设置。
+                    _macRefreshTextInputRectTicks = 10;
+                }
+
+                // 开启捕获输入时，也设置输入框位置。
+                StartTextInputAtSubscriber();
+            }
+            else
+            {
+                if (Constants.TargetPlatform is GamePlatform.Windows)
+                    WinImm32Ime?.Disable();
+                else if (Constants.TargetPlatform is GamePlatform.Mac)
+                    MacImeService?.Disable();
+
+                _macRefreshTextInputRectTicks = 0;
+                SDL_StopTextInput();
+            }
+
+            _oldIsTextInputSubscribed = IsTextInputSubscribed;
+        }
+
+        if (Constants.TargetPlatform is GamePlatform.Mac && IsTextInputSubscribed && _macRefreshTextInputRectTicks > 0)
+        {
+            _macRefreshTextInputRectTicks--;
+            StartTextInputAtSubscriber();
         }
     }
 

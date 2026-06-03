@@ -240,7 +240,9 @@ internal static class SDL
     }
     // 针对MacOS修改: 允许SDL请求系统原生 IME UI，用于显示系统输入法候选窗口
     public const string SDL_HINT_IME_SHOW_UI = "SDL_IME_SHOW_UI";
-    public const string SDL_HINT_MAC_FULLSCREEN_SPACES = "SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES";
+    // 常量名调整测试
+    // public const string SDL_HINT_MAC_FULLSCREEN_SPACES = "SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES";
+    public const string SDL_HINT_MAC_FULLSCREEN_SPACES = "SDL_VIDEO_MAC_FULLSCREEN_SPACES";
 
     [StructLayout(LayoutKind.Sequential)]
     public struct SDL_Rect
