@@ -32,6 +32,7 @@ public class ModEntry : Mod
     public static IntPtr hWnd;
     private static WindowsMessageHook _wndProcHook;
     private static WinImm32Ime WinImm32Ime;
+    private static TsfCandidateSink? _tsfCandidateSink;
     internal static MacImeService? MacImeService;
 
     public static Game1 KeyboardFocusInstance => Game1.keyboardFocusInstance;
@@ -99,6 +100,8 @@ public class ModEntry : Mod
             hImc = NativeMethods.ImmGetContext(hWnd);
             _wndProcHook ??= new WindowsMessageHook(hWnd);
             WinImm32Ime ??= new WinImm32Ime(_wndProcHook, hWnd);
+            _tsfCandidateSink ??= new TsfCandidateSink();
+            _tsfCandidateSink.TryInitialize();
         }
         else if (Constants.TargetPlatform is GamePlatform.Mac)
         {
@@ -155,17 +158,29 @@ public class ModEntry : Mod
     // 暂不支持除Windows以外的系统
     public static void RenderInputMethodInner(SpriteBatch spriteBatch)
     {
-        WinImm32Ime.UpdateCandidateList();
-
         List<string> candidates = new List<string>();
-        for (uint num = 0u; num < WinImm32Ime.CandidateCount; num++)
+        uint selectedCandidate;
+        var tsfSnapshot = _tsfCandidateSink?.GetSnapshot();
+        if (tsfSnapshot is { } weaselSnapshot && weaselSnapshot.Candidates.Length > 0)
         {
-            string candidate = WinImm32Ime.GetCandidate(num);
-            candidates.Add(candidate);
+            candidates.AddRange(weaselSnapshot.Candidates);
+            selectedCandidate = weaselSnapshot.Selection;
+        }
+        else
+        {
+            WinImm32Ime.UpdateCandidateList();
+            for (uint num = 0u; num < WinImm32Ime.CandidateCount; num++)
+            {
+                string candidate = WinImm32Ime.GetCandidate(num);
+                candidates.Add(candidate);
+            }
+
+            selectedCandidate = WinImm32Ime.SelectedCandidate;
         }
 
         string compositionString = WinImm32Ime.GetCompositionString();
-        if (string.IsNullOrWhiteSpace(compositionString))
+        bool hasComposition = !string.IsNullOrWhiteSpace(compositionString);
+        if (!hasComposition && candidates.Count == 0)
             return;
 
         // 计算候选框宽高
@@ -174,7 +189,8 @@ public class ModEntry : Mod
         int innerPadding = 10;
         int outerPadding = 16;
         float candidatesWidth = 0f;
-        int height = candidates.Count == 0 ? font.LineSpacing : font.LineSpacing * 2 + 12;
+        int rowCount = hasComposition && candidates.Count > 0 ? 2 : 1;
+        int height = font.LineSpacing * rowCount + (rowCount > 1 ? 12 : 0);
         height = (int) (height * scale);
         candidatesWidth += innerPadding;
         string format = "{0,2}. {1}";
@@ -188,7 +204,9 @@ public class ModEntry : Mod
             candidatesWidth += innerPadding;
         }
 
-        float compositionWidth = font.MeasureString(compositionString).X * scale + innerPadding * 2;
+        float compositionWidth = hasComposition
+            ? font.MeasureString(compositionString).X * scale + innerPadding * 2
+            : 0;
         float width = Math.Max(candidatesWidth, compositionWidth);
 
         // 计算绘制位置
@@ -233,14 +251,17 @@ public class ModEntry : Mod
         // 绘制缓冲区文字
         var pos = new Vector2(x + innerPadding, y + 7 * scale);
 
-        Utils.DrawTextWithAutoShadow(spriteBatch, $"{compositionString}", font, pos, Config.CompositionTextColor, scale);
+        if (hasComposition)
+            Utils.DrawTextWithAutoShadow(spriteBatch, compositionString, font, pos, Config.CompositionTextColor, scale);
 
         if (candidates.Count == 0)
             return;
 
         // 绘制候选
-        uint selectedCandidate = WinImm32Ime.SelectedCandidate;
-        pos = new Vector2(x + innerPadding, y + (font.LineSpacing + 9) * scale);
+        float candidateY = hasComposition
+            ? y + (font.LineSpacing + 9) * scale
+            : y + 7 * scale;
+        pos = new Vector2(x + innerPadding, candidateY);
         for (int i = 0; i < candidates.Count; i++)
         {
             Color color = Config.UnselectedTextColor;
@@ -335,7 +356,10 @@ public class ModEntry : Mod
             else
             {
                 if (Constants.TargetPlatform is GamePlatform.Windows)
+                {
                     WinImm32Ime?.Disable();
+                    _tsfCandidateSink?.ResetCandidates();
+                }
                 else if (Constants.TargetPlatform is GamePlatform.Mac)
                     MacImeService?.Disable();
 
@@ -361,6 +385,11 @@ public class ModEntry : Mod
         Rectangle rect = GetTextInputRectForSubscriber();
         SetTextInputRect(rect);
         SDL_StartTextInput();
+
+        // SDL/Windows owns the TSF thread manager. It can be created lazily by
+        // SDL_StartTextInput, so retry attaching after text input starts.
+        if (Constants.TargetPlatform is GamePlatform.Windows)
+            _tsfCandidateSink?.TryInitialize();
     }
 
     private Rectangle GetTextInputRectForSubscriber()
