@@ -33,7 +33,7 @@ internal class WinImm32Ime : IImeService, IDisposable
     private bool _isFocused;
     private WindowsMessageHook _wndProcHook;
     private bool _disposedValue;
-    private string _compString;
+    private string _compString = "";
     private string[] _candList = Array.Empty<string>();
     private uint _candSelection;
     private uint _candPageSize;
@@ -44,9 +44,18 @@ internal class WinImm32Ime : IImeService, IDisposable
 
     public bool IsCandidateListVisible => CandidateCount > 0;
 
-    public uint SelectedCandidate => _candSelection % _candPageSize;
+    public uint SelectedCandidate => _candPageSize == 0 ? 0 : _candSelection % _candPageSize;
 
-    public uint CandidateCount => Math.Min((uint) _candList.Length - SelectedPage * _candPageSize, _candPageSize);
+    public uint CandidateCount
+    {
+        get
+        {
+            uint pageStart = SelectedPage * _candPageSize;
+            return _candPageSize == 0 || pageStart >= _candList.Length
+                ? 0
+                : Math.Min((uint)_candList.Length - pageStart, _candPageSize);
+        }
+    }
 
     public bool IsEnabled { get; private set; }
 
@@ -87,7 +96,9 @@ internal class WinImm32Ime : IImeService, IDisposable
         try
         {
             int size = NativeMethods.ImmGetCompositionString(hImc, ImmConstants.GCS_COMPSTR, ref MemoryMarshal.GetReference(Span<byte>.Empty), 0);
-            if (size == 0)
+            // IMM_ERROR_NODATA/IMM_ERROR_GENERAL are negative. TSF-only input
+            // methods such as Weasel can legitimately have no IMM buffer.
+            if (size <= 0)
             {
                 return "";
             }
@@ -109,7 +120,7 @@ internal class WinImm32Ime : IImeService, IDisposable
         try
         {
             int size = NativeMethods.ImmGetCandidateList(hImc, 0, ref MemoryMarshal.GetReference(Span<byte>.Empty), 0);
-            if (size == 0)
+            if (size <= 0)
             {
                 _candList = Array.Empty<string>();
                 _candPageSize = 0;
