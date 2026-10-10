@@ -47,3 +47,8 @@
 | 微信    | ✅           | ❌                 | 有时能用有时不能用，不建议使用 |
 
 此外，尽量不要在游戏中切换输入法，有概率出BUG，实在是不会修了😅
+
+## ❤️ 感谢
+
+- 感谢[ericoshina](https://github.com/Cyrillya/InputMethodFix/pulls?q=is%3Apr+state%3Aclosed+author%3Aericoshina)改进了MacOS适配
+- 感谢[EstusFlask](https://github.com/Cyrillya/InputMethodFix/pulls?q=is%3Apr+state%3Aclosed+author%3AEstusFlask)添加了对小狼毫输入法的支持
